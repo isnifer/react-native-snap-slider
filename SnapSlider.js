@@ -1,151 +1,144 @@
-'use strict';
+import React, { Component, PropTypes } from 'react'
+import { View, Text, Slider, StyleSheet } from 'react-native'
 
-var React = require('react');
-var ReactNative = require('react-native');
+class SnapSlider extends Component {
+  static propTypes = {
+    onSlidingComplete: PropTypes.func,
+    style: View.propTypes.style,
+    containerStyle: View.propTypes.style,
+    itemWrapperStyle: View.propTypes.style,
+    itemStyle: Text.propTypes.style,
+    items: PropTypes.array,
+    defaultItem: PropTypes.number,
+  }
 
-var {
-    PropTypes
-    } = React;
+  static defaultProps = {
+    minimumValue: 0,
+    maximumValue: 1,
+  }
 
-var {
-    StyleSheet,
-    Slider,
-    Text,
-    View,
-    } = ReactNative;
+  state = {
+    sliderRatio: this.props.maximumValue / (this.props.items.length - 1),
+    value: sliderRatio * this.props.defaultItem,
+    item: this.props.defaultItem,
+    adjustSign: 1,
+    itemWidth: [],
+    sliderWidth: 0,
+    sliderLeft: 0,
+  }
 
-var SnapSlider = React.createClass({
-    propTypes: {
-        onSlidingComplete: PropTypes.func,
-        style: View.propTypes.style,
-        containerStyle: View.propTypes.style,
-        itemWrapperStyle: View.propTypes.style,
-        itemStyle: Text.propTypes.style,
-        items: PropTypes.array,
-        defaultItem: PropTypes.number,
-    },
-    getInitialState() {
-        var sliderRatio = this.props.maximumValue / (this.props.items.length - 1);
-        var value = sliderRatio * this.props.defaultItem;
-        var item = this.props.defaultItem;
-        return {
-            sliderRatio: sliderRatio,
-            value: value,
-            item: item,
-            adjustSign: 1,
-            itemWidth: [],
-            sliderWidth: 0,
-            sliderLeft: 0,
-        };
-    },
-    getDefaultProps() {
-        return {
-            minimumValue: 0,
-            maximumValue: 1,
-        };
-    },
-    _sliderStyle() {
-        return [defaultStyles.slider, {width: this.state.sliderWidth, left: this.state.sliderLeft}, this.props.style];
-    },
-    _onSlidingCompleteCallback: function (v) {
-        //pad the value to the snap position
-        var halfRatio = this.state.sliderRatio / 2;
-        var i = 0;
-        for (;;) {
-            if ((v < this.state.sliderRatio) || (v <= 0)) {
-                if (v >= halfRatio) {
-                    i++;
-                }
-                break;
-            }
-            v = v - this.state.sliderRatio;
-            i++;
+  _sliderStyle = () => ([
+    defaultStyles.slider,
+    { width: this.state.sliderWidth, left: this.state.sliderLeft },
+    this.props.style,
+  ])
+
+  _onSlidingCompleteCallback = (v) => {
+    // pad the value to the snap position
+    const halfRatio = this.state.sliderRatio / 2
+    let item = 0
+    for (;;) {
+      if ((v < this.state.sliderRatio) || (v <= 0)) {
+        if (v >= halfRatio) {
+          item += 1
         }
-        var value = this.state.sliderRatio * i;
 
-        //Move the slider
-        value = value + (this.state.adjustSign * 0.000001);//enforce UI update
-        if (this.state.adjustSign > 0) {
-            this.setState({adjustSign: -1});
-        } else {
-            this.setState({adjustSign: 1});
-        }
-        this.setState({value: value, item: i});
+        break
+      }
 
-        //callback
-        this.props.onSlidingComplete();
-    },
-    /*
-    componentWillUpdate() {
-        //get the width for all items
-        var iw = [];
-        for (var i = 0; i < this.props.items.length; i++) {
-            var node = eval('this.refs.t' + i);
-            node.measure(function (ox, oy, width, height, px, py) {
-                iw.push(width);
-            });
-        }
-    },
-    */
-    _getItemWidth: function (x) {
-        var width = x.nativeEvent.layout.width;
-        var itemWidth = this.state.itemWidth;
-        itemWidth.push(width);
-        this.setState({itemWidth: itemWidth});
-        //we have all itemWidth determined, let's update the silder width
-        if (this.state.itemWidth.length == this.props.items.length) {
-            var max = Math.max.apply(null, this.state.itemWidth);
-            if (this.refs.slider && this.state.sliderWidth > 0) {
-                var that = this;
-                var w, l;
-                var buffer = 30;//add buffer for the slider 'ball' control
-                if(buffer > w){
-                    buffer = 0;
-                }
-                w = that.state.sliderWidth - max;
-                w = w + buffer;
-                l = max / 2;
-                l = l - buffer / 2;
-                that.setState({sliderWidth: w});
-                that.setState({sliderLeft: l});
-            }
-        }
-    },
-    _getSliderWidth: function (e) {
-        var {x, y, width, height} = e.nativeEvent.layout;
-        this.setState({sliderWidth: width});
-    },
-    render() {
-        var that = this;
-        var itemStyle = [defaultStyles.item, this.props.itemStyle];
-        return (
-            <View onLayout={that._getSliderWidth} style={[defaultStyles.container, this.props.containerStyle]}>
-                <Slider ref="slider" {...this.props} style={this._sliderStyle()} onSlidingComplete={(value) => this._onSlidingCompleteCallback(value)} value={this.state.value} />
-                <View style={[defaultStyles.itemWrapper, this.props.itemWrapperStyle]}>
-                {
-                    this.props.items.map(function(i, j) {
-                        return <Text key={i.value} ref={"t"+j} style={itemStyle} onLayout={that._getItemWidth}>{i.label}</Text>;
-                    })
-                }
-                </View>
-            </View>
-        );
+      v -= this.state.sliderRatio
+      item += 1
     }
-});
+
+    let value = this.state.sliderRatio * i
+    value += this.state.adjustSign * 0.000001
+
+    const adjustSign = this.state.adjustSign > 0 ? -1 : 1
+
+    this.setState({ value, adjustSign, item: i })
+
+    // callback
+    this.props.onSlidingComplete()
+  }
+
+  /*
+  componentWillUpdate() {
+      //get the width for all items
+      var iw = []
+      for (var i = 0; i < this.props.items.length; i++) {
+          var node = eval('this.refs.t' + i)
+          node.measure(function (ox, oy, width, height, px, py) {
+              iw.push(width)
+          })
+      }
+  },
+  */
+
+  _getItemWidth = (x) => {
+    const { width } = x.nativeEvent.layout
+    this.setState({
+      itemWidth: this.state.itemWidth.concat(width),
+    })
+
+    // we have all itemWidth determined, let's update the silder width
+    if (this.state.itemWidth.length === this.props.items.length) {
+      const max = Math.max.apply(null, this.state.itemWidth)
+      if (this.refs.slider && this.state.sliderWidth > 0) {
+        const buffer = 30 // add buffer for the slider 'ball' control
+        // if (buffer > sliderWidth) { // strange comparison that false everytime
+          // buffer = 0
+        // }
+
+        this.setState({
+          sliderWidth: this.state.sliderWidth - max + buffer,
+          sliderLeft: (max / 2) - (buffer / 2),
+        })
+      }
+    }
+  }
+
+  _getSliderWidth = (e) => (
+    this.setState({ sliderWidth: e.nativeEvent.layout.width })
+  )
+
+  render() {
+    const itemStyle = [defaultStyles.item, this.props.itemStyle]
+    return (
+      <View
+        onLayout={this._getSliderWidth}
+        style={[defaultStyles.container, this.props.containerStyle]}>
+        <Slider
+          ref="slider"
+          {...this.props}
+          style={this._sliderStyle()}
+          onSlidingComplete={this._onSlidingCompleteCallback}
+          value={this.state.value}
+        />
+        <View style={[defaultStyles.itemWrapper, this.props.itemWrapperStyle]}>
+          {this.props.items.map((i, j) => (
+            <Text
+              key={i.value}
+              ref={`t${j}`}
+              style={itemStyle}
+              onLayout={this._getItemWidth}>
+              {i.label}
+            </Text>
+          ))}
+        </View>
+      </View>
+    )
+  }
+})
 
 var defaultStyles = StyleSheet.create({
-    container: {
-        alignSelf: 'stretch',
-    },
-    slider: {
-    },
-    itemWrapper: {
-        justifyContent: 'space-between',
-        alignSelf: 'stretch',
-        flexDirection: 'row',
-    },
-    item: {
-    },
-});
+  container: {
+    alignSelf: 'stretch',
+  },
+  itemWrapper: {
+    justifyContent: 'space-between',
+    alignSelf: 'stretch',
+    flexDirection: 'row',
+  },
+})
 
-module.exports = SnapSlider;
+export default SnapSlider
